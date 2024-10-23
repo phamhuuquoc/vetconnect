@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'signup_page.dart'; // Import trang đăng ký
-import 'forgot_password_page.dart'; // Thêm dòng này
+import 'forgot_password_page.dart'; // Import trang quên mâật khẩu
+import 'main_page.dart'; // Import MainPage
 
 class LoginPage extends StatelessWidget {
   const LoginPage({super.key});
@@ -85,7 +86,7 @@ class LoginPage extends StatelessWidget {
                       // Chuyển đến màn hình quên mật khẩu
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => const ForgotPasswordPage()), // Thêm dòng này
+                        MaterialPageRoute(builder: (context) => const ForgotPasswordPage()),
                       );
                     },
                     child: const Text(
@@ -100,7 +101,11 @@ class LoginPage extends StatelessWidget {
                 const SizedBox(height: 20),
                 ElevatedButton(
                   onPressed: () {
-                    // Xử lý đăng nhập
+                    // Điều hướng sang trang chính (MainPage)
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (context) => const MainPage()), // Chuyển sang MainPage
+                    );
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF1F41BB),

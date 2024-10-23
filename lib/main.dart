@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'login_page.dart'; // Import trang đăng nhập
+import 'main_page.dart'; // Nhập MainPage để sử dụng
+import 'login_page.dart'; // Nhập trang đăng nhập
 
 void main() {
   runApp(const MyApp());
@@ -16,6 +17,9 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.blue,
       ),
       home: const LoginPage(), // Hiển thị trang đăng nhập
+      routes: {
+        '/main': (context) => const MainPage(), // Đường dẫn đến MainPage
+      },
     );
   }
 }
