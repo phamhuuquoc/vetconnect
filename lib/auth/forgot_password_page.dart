@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class ForgotPasswordPage extends StatefulWidget {
   const ForgotPasswordPage({super.key});
@@ -10,19 +11,42 @@ class ForgotPasswordPage extends StatefulWidget {
 class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _emailController = TextEditingController();
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  bool _isLoading = false;
 
   String? _validateEmail(String? value) {
     if (value == null || value.isEmpty) {
       return 'Please enter your email';
     }
-    // Regular expression to validate email format
-    String pattern =
-        r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$';
+    String pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$';
     RegExp regex = RegExp(pattern);
     if (!regex.hasMatch(value)) {
       return 'Please enter a valid email';
     }
     return null;
+  }
+
+  Future<void> _resetPassword() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() {
+        _isLoading = true;
+      });
+      try {
+        await _auth.sendPasswordResetEmail(email: _emailController.text.trim());
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Password reset email sent!')),
+        );
+        Navigator.of(context).pop(); // Quay lại màn hình đăng nhập sau khi gửi thành công
+      } on FirebaseAuthException catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message ?? 'Failed to send reset email')),
+        );
+      } finally {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -39,9 +63,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
-                  Text(
+                  const Text(
                     'Forgot your password?',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
                       color: Color(0xFF1F41BB),
@@ -49,9 +73,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 10),
-                  Text(
+                  const Text(
                     'Enter your email to reset your password.',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
                       color: Color(0xFF000000),
                     ),
@@ -81,14 +105,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                   ),
                   const SizedBox(height: 20),
                   ElevatedButton(
-                    onPressed: () {
-                      if (_formKey.currentState!.validate()) {
-                        // Xử lý gửi email reset mật khẩu
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Processing Data')),
-                        );
-                      }
-                    },
+                    onPressed: _isLoading ? null : _resetPassword,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF1F41BB),
                       padding: const EdgeInsets.symmetric(vertical: 16.0),
@@ -97,7 +114,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                       ),
                       elevation: 5,
                     ),
-                    child: const Text(
+                    child: _isLoading
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : const Text(
                       'Reset Password',
                       style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                     ),

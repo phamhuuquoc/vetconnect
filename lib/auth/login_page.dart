@@ -1,8 +1,51 @@
 import 'package:flutter/material.dart';
-import 'login_page.dart'; // Import trang đăng nhập
+import 'package:firebase_auth/firebase_auth.dart';
+import '../auth/signup_page.dart'; // Import trang đăng ký
+import '../auth/forgot_password_page.dart'; // Import trang quên mật khẩu
+import '../main/main_page.dart'; // Import MainPage
 
-class SignUpPage extends StatelessWidget {
-  const SignUpPage({super.key});
+class LoginPage extends StatelessWidget {
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
+
+  LoginPage({super.key});
+
+  void signInWithEmailAndPassword(BuildContext context, String email, String password) async {
+    try {
+      final UserCredential userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const MainPage()),
+      );
+    } on FirebaseAuthException catch (e) {
+      String message;
+      if (e.code == 'user-not-found') {
+        message = 'No user found for that email.';
+      } else if (e.code == 'wrong-password') {
+        message = 'Wrong password provided.';
+      } else {
+        message = 'Login failed. Please try again.';
+      }
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text("Login Failed"),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text("OK"),
+            ),
+          ],
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -16,9 +59,9 @@ class SignUpPage extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                Text(
-                  'Create Account',
-                  style: const TextStyle(
+                const Text(
+                  'Login here',
+                  style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF1F41BB),
@@ -26,17 +69,18 @@ class SignUpPage extends StatelessWidget {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 10),
-                Text(
-                  'Create an account so you can explore all its functions',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF000000),
+                const Text(
+                  'Welcome back, you\'ve been missed!',
+                  style: TextStyle(
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
+                    color: Color(0xFF000000),
                   ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 30),
                 TextField(
+                  controller: emailController,
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: const Color(0xFFF1F4FF),
@@ -57,6 +101,7 @@ class SignUpPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 20),
                 TextField(
+                  controller: passwordController,
                   obscureText: true,
                   decoration: InputDecoration(
                     filled: true,
@@ -76,31 +121,31 @@ class SignUpPage extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 20),
-                TextField(
-                  obscureText: true,
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: const Color(0xFFF1F4FF),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10.0),
-                      borderSide: const BorderSide(color: Colors.transparent),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10.0),
-                      borderSide: const BorderSide(color: Color(0xFF1F41BB), width: 2.0),
-                    ),
-                    labelText: 'Confirm Password',
-                    labelStyle: const TextStyle(
-                      color: Color(0xFF1F41BB),
-                      fontWeight: FontWeight.normal,
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const ForgotPasswordPage()),
+                      );
+                    },
+                    child: const Text(
+                      'Forgot your password?',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1F41BB),
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(height: 20),
                 ElevatedButton(
                   onPressed: () {
-                    // Xử lý đăng ký
+                    final email = emailController.text.trim();
+                    final password = passwordController.text;
+                    signInWithEmailAndPassword(context, email, password);
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF1F41BB),
@@ -111,17 +156,19 @@ class SignUpPage extends StatelessWidget {
                     elevation: 5,
                   ),
                   child: const Text(
-                    'Sign up',
+                    'Sign in',
                     style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                   ),
                 ),
                 const SizedBox(height: 20),
                 TextButton(
                   onPressed: () {
-                    Navigator.of(context).pop(); // Quay lại màn hình đăng nhập
+                    Navigator.of(context).push(MaterialPageRoute(
+                      builder: (context) => const SignupPage(),
+                    ));
                   },
                   child: const Text(
-                    'Already have an account',
+                    'Create new account',
                     style: TextStyle(
                       color: Color(0xFF494949),
                       fontWeight: FontWeight.bold,
