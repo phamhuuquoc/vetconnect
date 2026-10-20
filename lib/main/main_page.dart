@@ -123,9 +123,3 @@ class _MainPageState extends State<MainPage> {
     );
   }
 }
-
-void main() {
-  runApp(const MaterialApp(
-    home: MainPage(), // Khởi chạy MainPage
-  ));
-}
