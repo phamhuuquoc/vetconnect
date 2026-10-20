@@ -41,3 +41,10 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Android signing and local build config (never commit)
+/android/.gradle/
+/android/captures/
+/android/key.properties
+*.jks
+*.keystore
