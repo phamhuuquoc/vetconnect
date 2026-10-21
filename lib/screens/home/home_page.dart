@@ -32,10 +32,11 @@ class _HomePageState extends State<HomePage> {
     final reminders = PetRepository.pets
         .where((pet) => AppDataRepository.remindersEnabled)
         .expand((pet) => pet.vaccines
-            .where((v) => !v.done)
-            .map((v) => (pet: pet, vaccine: v)))
+            .where((v) => !v.done || v.nextDate != null)
+            .map((v) =>
+                (pet: pet, vaccine: v, date: v.done ? v.nextDate! : v.date)))
         .toList()
-      ..sort((a, b) => a.vaccine.date.compareTo(b.vaccine.date));
+      ..sort((a, b) => a.date.compareTo(b.date));
     return Container(
         color: bg,
         child: SafeArea(
@@ -93,7 +94,7 @@ class _HomePageState extends State<HomePage> {
                   leading: const Icon(Icons.vaccines, color: primary),
                   title: Text('${item.vaccine.name} - ${item.pet.name}'),
                   subtitle: Text(
-                      '${item.vaccine.date.day}/${item.vaccine.date.month}/${item.vaccine.date.year}'),
+                      '${item.date.day}/${item.date.month}/${item.date.year}'),
                 )),
             ],
           ),

@@ -58,6 +58,10 @@ void main() {
   });
   testWidgets('invalid age and weight prevent saving, errors preserve the form',
       (tester) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     var calls = 0;
     await tester.pumpWidget(page(AddPetPage(onSave: (_) async {
       calls++;
@@ -66,7 +70,9 @@ void main() {
     await tester.enterText(find.byType(TextFormField).at(0), 'Luna');
     await tester.enterText(find.byType(TextFormField).at(2), '-1');
     await tester.enterText(find.byType(TextFormField).at(3), 'NaN');
-    await tester.scrollUntilVisible(find.widgetWithText(ElevatedButton, 'Thêm thú cưng'), 300,
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+        find.widgetWithText(ElevatedButton, 'Thêm thú cưng'), 300,
         scrollable: find.byType(Scrollable).first);
     await tester.tap(find.widgetWithText(ElevatedButton, 'Thêm thú cưng'));
     await tester.pumpAndSettle();
@@ -76,6 +82,7 @@ void main() {
         scrollable: find.byType(Scrollable).first);
     await tester.enterText(find.byType(TextFormField).at(2), '2');
     await tester.enterText(find.byType(TextFormField).at(3), '4,5');
+    await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
         find.widgetWithText(ElevatedButton, 'Thêm thú cưng'), 300,
         scrollable: find.byType(Scrollable).first);

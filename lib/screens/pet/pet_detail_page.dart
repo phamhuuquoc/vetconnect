@@ -379,9 +379,11 @@ class _PetDetailPageState extends State<PetDetailPage> {
         const SizedBox(width: 10),
         _metric(
           'Tiêm chủng',
-          _pet.vaccineUpToDate
-              ? 'Đầy đủ'
-              : 'Còn ${_pet.pendingVaccineCount} mũi',
+          _pet.vaccines.isEmpty
+              ? 'Chưa có dữ liệu.'
+              : _pet.vaccineUpToDate
+                  ? 'Đầy đủ'
+                  : 'Còn ${_pet.pendingVaccineCount} mũi',
         ),
       ],
     );

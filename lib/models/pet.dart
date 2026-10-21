@@ -136,11 +136,18 @@ class Pet {
   String get subtitle => '$breed - $ageYears tuổi';
 
   bool get vaccineUpToDate {
-    return vaccines.every((VaccineRecord v) => v.done);
+    return vaccines.isNotEmpty &&
+        vaccines.every((VaccineRecord v) =>
+            v.done &&
+            (v.nextDate == null || v.nextDate!.isAfter(DateTime.now())));
   }
 
   int get pendingVaccineCount {
-    return vaccines.where((VaccineRecord v) => !v.done).length;
+    return vaccines
+        .where((VaccineRecord v) =>
+            !v.done ||
+            (v.nextDate != null && !v.nextDate!.isAfter(DateTime.now())))
+        .length;
   }
 
   int get totalSpent {
