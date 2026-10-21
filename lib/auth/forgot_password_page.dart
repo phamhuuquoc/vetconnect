@@ -1,3 +1,5 @@
+import '../l10n/app_fields.dart';
+import '../l10n/app_text.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -5,7 +7,7 @@ class ForgotPasswordPage extends StatefulWidget {
   const ForgotPasswordPage({super.key});
 
   @override
-  _ForgotPasswordPageState createState() => _ForgotPasswordPageState();
+  State<ForgotPasswordPage> createState() => _ForgotPasswordPageState();
 }
 
 class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
@@ -33,20 +35,31 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       });
       try {
         await _auth.sendPasswordResetEmail(email: _emailController.text.trim());
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Password reset email sent!')),
+          const SnackBar(content: AppText('Password reset email sent!')),
         );
-        Navigator.of(context).pop(); // Quay lại màn hình đăng nhập sau khi gửi thành công
-      } on FirebaseAuthException catch (e) {
+        Navigator.of(context)
+            .pop(); // Quay lại màn hình đăng nhập sau khi gửi thành công
+      } on FirebaseAuthException {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message ?? 'Failed to send reset email')),
+          const SnackBar(content: AppText('Failed to send reset email')),
         );
       } finally {
-        setState(() {
-          _isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
       }
     }
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    super.dispose();
   }
 
   @override
@@ -63,7 +76,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
-                  const Text(
+                  const AppText(
                     'Forgot your password?',
                     style: TextStyle(
                       fontSize: 24,
@@ -73,7 +86,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 10),
-                  const Text(
+                  const AppText(
                     'Enter your email to reset your password.',
                     style: TextStyle(
                       fontSize: 16,
@@ -82,7 +95,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 30),
-                  TextFormField(
+                  AppTextFormField(
                     controller: _emailController,
                     decoration: InputDecoration(
                       filled: true,
@@ -93,7 +106,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10.0),
-                        borderSide: const BorderSide(color: Color(0xFF1F41BB), width: 2.0),
+                        borderSide: const BorderSide(
+                            color: Color(0xFF1F41BB), width: 2.0),
                       ),
                       labelText: 'Email',
                       labelStyle: const TextStyle(
@@ -116,17 +130,20 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     ),
                     child: _isLoading
                         ? const CircularProgressIndicator(color: Colors.white)
-                        : const Text(
-                      'Reset Password',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                    ),
+                        : const AppText(
+                            'Reset Password',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold),
+                          ),
                   ),
                   const SizedBox(height: 20),
                   TextButton(
                     onPressed: () {
-                      Navigator.of(context).pop(); // Quay lại màn hình đăng nhập
+                      Navigator.of(context)
+                          .pop(); // Quay lại màn hình đăng nhập
                     },
-                    child: const Text(
+                    child: const AppText(
                       'Back to Login',
                       style: TextStyle(
                         color: Color(0xFF494949),

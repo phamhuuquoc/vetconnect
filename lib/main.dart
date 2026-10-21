@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'main/main_page.dart'; // Trang Main
-import 'auth/login_page.dart'; // Trang Login
-import 'auth/signup_page.dart'; // Trang Signup
-import 'auth/forgot_password_page.dart'; // Trang Quên mật khẩu
-import 'screens/home/home_page.dart'; // Trang Home
-import 'screens/book/book_page.dart'; // Trang Đặt lịch khám
-import 'screens/profile/profile_page.dart'; // Trang Profile
-import 'screens/history/history_page.dart'; // Trang History
-import 'screens/search/search_page.dart'; // Trang Search
+import 'auth/auth_gate.dart';
+import 'firebase_options.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'l10n/locale_controller.dart';
+import 'theme/app_theme.dart';
+import 'widgets/app_data_scope.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  try {
+    await appLocale.load();
+  } catch (_) {
+    // Keep the default language if device preferences are unavailable.
+  }
   runApp(const VetConnectApp());
 }
 
@@ -21,24 +23,18 @@ class VetConnectApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'VetConnect',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        visualDensity: VisualDensity.adaptivePlatformDensity,
-      ),
-      initialRoute: '/', // Route đầu tiên khi khởi động ứng dụng
-      routes: {
-        '/': (context) => const MainPage(), // Route chính
-        '/login': (context) => LoginPage(), // Route đăng nhập
-        '/signup': (context) => const SignupPage(), // Route đăng ký
-        '/forgot_password': (context) => const ForgotPasswordPage(), // Route quên mật khẩu
-        '/home': (context) =>  HomePage(), // Route trang Home
-        '/book': (context) =>  BookPage(), // Route trang đặt lịch khám
-        '/profile': (context) =>  ProfilePage(), // Route trang Profile
-        '/history': (context) =>  HistoryPage(), // Route trang History
-        '/search': (context) =>  SearchPage(), // Route trang Search
-      },
-    );
+    return ListenableBuilder(
+        listenable: appLocale,
+        builder: (context, _) => MaterialApp(
+              debugShowCheckedModeBanner: false,
+              title: 'VetConnect',
+              locale: appLocale.locale,
+              supportedLocales: LocaleController.supportedLocales,
+              localizationsDelegates: GlobalMaterialLocalizations.delegates,
+              theme: buildAppTheme(),
+              builder: (context, child) =>
+                  AppDataScope(child: child ?? const SizedBox.shrink()),
+              home: const AuthGate(),
+            ));
   }
 }

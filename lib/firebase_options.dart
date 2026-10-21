@@ -41,48 +41,46 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyDsKi7KD4awMV6BGODG7apLkm6ueZ_yqKo',
-    appId: '1:359764588507:web:62e505ead84a8b64d259fe',
-    messagingSenderId: '359764588507',
-    projectId: 'vetconnect-ab69b',
-    authDomain: 'vetconnect-ab69b.firebaseapp.com',
-    storageBucket: 'vetconnect-ab69b.firebasestorage.app',
-    measurementId: 'G-ZW1ZRRSEYN',
+    apiKey: 'AIzaSyAubV7DCrb3q6DuHbexBadqaLQQNqi2WLY',
+    appId: '1:978510354949:web:35d6404562d4d5027c5a6c',
+    messagingSenderId: '978510354949',
+    projectId: 'vetconnect-149d7',
+    authDomain: 'vetconnect-149d7.firebaseapp.com',
+    storageBucket: 'vetconnect-149d7.firebasestorage.app',
+    measurementId: 'G-19CRB7VLBY',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyDCKDzbR68TkgUuFiVTSEfQHMGKOdd4PUA',
-    appId: '1:359764588507:android:e7c021381e17e7cfd259fe',
-    messagingSenderId: '359764588507',
-    projectId: 'vetconnect-ab69b',
-    storageBucket: 'vetconnect-ab69b.firebasestorage.app',
+    apiKey: 'AIzaSyALoB-xenusr-ByQqdIy4pOLRBmcyRcJBA',
+    appId: '1:978510354949:android:516ed1e8938bb5537c5a6c',
+    messagingSenderId: '978510354949',
+    projectId: 'vetconnect-149d7',
+    storageBucket: 'vetconnect-149d7.firebasestorage.app',
   );
-
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyDdiSG-BTynhSILrkiajs_qQ4tXRgKrrl8',
-    appId: '1:359764588507:ios:42cf34074f545cf0d259fe',
-    messagingSenderId: '359764588507',
-    projectId: 'vetconnect-ab69b',
-    storageBucket: 'vetconnect-ab69b.firebasestorage.app',
+    apiKey: 'AIzaSyCabXiMfdW3DtAansevMBI1L6Ky7CHBFzo',
+    appId: '1:978510354949:ios:9a39df8f09be95a27c5a6c',
+    messagingSenderId: '978510354949',
+    projectId: 'vetconnect-149d7',
+    storageBucket: 'vetconnect-149d7.firebasestorage.app',
     iosBundleId: 'com.example.vetconnect',
   );
-
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyDdiSG-BTynhSILrkiajs_qQ4tXRgKrrl8',
-    appId: '1:359764588507:ios:42cf34074f545cf0d259fe',
-    messagingSenderId: '359764588507',
-    projectId: 'vetconnect-ab69b',
-    storageBucket: 'vetconnect-ab69b.firebasestorage.app',
+    apiKey: 'AIzaSyCabXiMfdW3DtAansevMBI1L6Ky7CHBFzo',
+    appId: '1:978510354949:ios:9a39df8f09be95a27c5a6c',
+    messagingSenderId: '978510354949',
+    projectId: 'vetconnect-149d7',
+    storageBucket: 'vetconnect-149d7.firebasestorage.app',
     iosBundleId: 'com.example.vetconnect',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyDsKi7KD4awMV6BGODG7apLkm6ueZ_yqKo',
-    appId: '1:359764588507:web:3e853cd4207353cad259fe',
-    messagingSenderId: '359764588507',
-    projectId: 'vetconnect-ab69b',
-    authDomain: 'vetconnect-ab69b.firebaseapp.com',
-    storageBucket: 'vetconnect-ab69b.firebasestorage.app',
-    measurementId: 'G-ZZCYJ0ZTG6',
+    apiKey: 'AIzaSyAubV7DCrb3q6DuHbexBadqaLQQNqi2WLY',
+    appId: '1:978510354949:web:bc7bed60022856897c5a6c',
+    messagingSenderId: '978510354949',
+    projectId: 'vetconnect-149d7',
+    authDomain: 'vetconnect-149d7.firebaseapp.com',
+    storageBucket: 'vetconnect-149d7.firebasestorage.app',
+    measurementId: 'G-SD1MYGYVM1',
   );
 }

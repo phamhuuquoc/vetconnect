@@ -1,11 +1,20 @@
+import '../../l10n/app_text.dart';
 import 'package:flutter/material.dart';
+import '../../theme/app_theme.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../data/pet_repository.dart';
+import '../../data/app_data_repository.dart';
 import '../../models/pet.dart';
-import '../pet/add_pet_page.dart';
+import '../../models/app_user.dart';
+import '../../l10n/language_picker.dart';
 import '../pet/pet_detail_page.dart';
+import '../pet/add_pet_page.dart';
+import 'settings_page.dart';
+import '../../widgets/app_data_scope.dart';
 
 class ProfilePage extends StatefulWidget {
-  const ProfilePage({super.key});
+  const ProfilePage({super.key, this.account});
+  final AppUser? account;
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -14,20 +23,8 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   static const Color primary = Color(0xFF1F41BB);
   static const Color bg = Color(0xFFF5F6F7);
-
-  Future<void> _openAddPet() async {
-    final bool? result = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (BuildContext context) => const AddPetPage(),
-      ),
-    );
-    if (result == true && mounted) {
-      setState(() {});
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đã thêm thú cưng')),
-      );
-    }
-  }
+  bool get _isPetOwner =>
+      (widget.account?.role ?? UserRole.user) == UserRole.user;
 
   Future<void> _openPetDetail(Pet pet) async {
     final bool? result = await Navigator.of(context).push<bool>(
@@ -42,6 +39,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    AppDataScope.watch(context);
     return Container(
       color: bg,
       child: SafeArea(
@@ -50,18 +48,33 @@ class _ProfilePageState extends State<ProfilePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              const Text(
+              const AppText(
                 'Cá nhân',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.heading),
               ),
               const SizedBox(height: 16),
               _header(),
-              const SizedBox(height: 14),
-              _stats(),
-              const SizedBox(height: 18),
-              _sectionTitle('Thú cưng của tôi'),
-              const SizedBox(height: 10),
-              _petList(),
+              if (_isPetOwner) ...[
+                const SizedBox(height: 14),
+                _stats(),
+                const SizedBox(height: 18),
+                _sectionTitle('Thú cưng của tôi'),
+                const SizedBox(height: 10),
+                _petList(),
+                TextButton.icon(
+                    onPressed: () async {
+                      await Navigator.push(
+                          context,
+                          MaterialPageRoute<bool>(
+                              builder: (_) => const AddPetPage()));
+                      if (mounted) setState(() {});
+                    },
+                    icon: const Icon(Icons.add),
+                    label: const AppText('Thêm thú cưng')),
+              ],
               const SizedBox(height: 18),
               _sectionTitle('Cài đặt'),
               const SizedBox(height: 10),
@@ -84,13 +97,12 @@ class _ProfilePageState extends State<ProfilePage> {
               color: Colors.white,
               borderRadius: BorderRadius.circular(14),
             ),
-            child: const Text(
-              'Chưa có thú cưng nào. Thêm hồ sơ để bắt đầu đặt lịch khám.',
+            child: const AppText(
+              'Chưa có thú cưng nào.',
               style: TextStyle(fontSize: 13, color: Colors.black54),
             ),
           ),
           const SizedBox(height: 10),
-          _addPet(),
         ],
       );
     }
@@ -105,7 +117,6 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
         ),
-        _addPet(),
       ],
     );
   }
@@ -121,9 +132,9 @@ class _ProfilePageState extends State<ProfilePage> {
         children: <Widget>[
           CircleAvatar(
             radius: 28,
-            backgroundColor: primary.withOpacity(0.1),
-            child: const Text(
-              'NA',
+            backgroundColor: primary.withValues(alpha: 0.1),
+            child: const AppText(
+              '👤',
               style: TextStyle(
                 color: primary,
                 fontSize: 17,
@@ -132,23 +143,23 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
           const SizedBox(width: 14),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Text(
-                  'Nguyễn Văn A',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                AppText(
+                  widget.account?.role.label ?? 'Tài khoản',
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w600),
                 ),
-                SizedBox(height: 3),
-                Text(
-                  'nguyenvana@gmail.com',
-                  style: TextStyle(fontSize: 13, color: Colors.black54),
+                const SizedBox(height: 3),
+                AppText(
+                  widget.account?.email ?? '',
+                  style: const TextStyle(fontSize: 13, color: Colors.black54),
                 ),
               ],
             ),
           ),
-          const Icon(Icons.edit_outlined, size: 20, color: primary),
         ],
       ),
     );
@@ -159,9 +170,10 @@ class _ProfilePageState extends State<ProfilePage> {
       children: <Widget>[
         _statCard('${PetRepository.pets.length}', 'Thú cưng'),
         const SizedBox(width: 10),
-        _statCard('8', 'Lịch khám'),
+        _statCard(
+            '${AppDataRepository.appointments.length + PetRepository.pets.fold<int>(0, (sum, pet) => sum + pet.visits.length)}',
+            'Lịch khám'),
         const SizedBox(width: 10),
-        _statCard('320', 'Điểm thưởng'),
       ],
     );
   }
@@ -176,7 +188,7 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
         child: Column(
           children: <Widget>[
-            Text(
+            AppText(
               value,
               style: const TextStyle(
                 fontSize: 18,
@@ -185,7 +197,7 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             ),
             const SizedBox(height: 4),
-            Text(
+            AppText(
               label,
               style: const TextStyle(fontSize: 12, color: Colors.black54),
             ),
@@ -196,7 +208,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _sectionTitle(String title) {
-    return Text(
+    return AppText(
       title,
       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
     );
@@ -213,7 +225,7 @@ class _ProfilePageState extends State<ProfilePage> {
         children: <Widget>[
           CircleAvatar(
             radius: 22,
-            backgroundColor: primary.withOpacity(0.1),
+            backgroundColor: primary.withValues(alpha: 0.1),
             child: const Icon(Icons.pets, color: primary),
           ),
           const SizedBox(width: 12),
@@ -223,10 +235,11 @@ class _ProfilePageState extends State<ProfilePage> {
               children: <Widget>[
                 Text(
                   pet.name,
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 3),
-                Text(
+                AppText(
                   pet.subtitle,
                   style: const TextStyle(fontSize: 12, color: Colors.black54),
                 ),
@@ -239,28 +252,6 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _addPet() {
-    return GestureDetector(
-      onTap: _openAddPet,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: primary.withOpacity(0.4)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: const <Widget>[
-            Icon(Icons.add, color: primary, size: 20),
-            SizedBox(width: 6),
-            Text('Thêm thú cưng', style: TextStyle(color: primary, fontSize: 14)),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _menu() {
     return Container(
       decoration: BoxDecoration(
@@ -269,14 +260,18 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
       child: Column(
         children: <Widget>[
-          _menuItem(Icons.account_balance_wallet_outlined, 'Ví và thanh toán'),
+          const LanguageSetting(),
           _divider(),
-          _menuItem(Icons.location_on_outlined, 'Địa chỉ của tôi'),
-          _divider(),
-          _menuItem(Icons.notifications_none, 'Cài đặt nhắc nhở'),
-          _divider(),
-          _menuItem(Icons.favorite_border, 'Phòng khám yêu thích'),
-          _divider(),
+          if (_isPetOwner) ...[
+            _menuItem(Icons.account_balance_wallet_outlined, 'Chi phí khám'),
+            _divider(),
+            _menuItem(Icons.location_on_outlined, 'Địa chỉ của tôi'),
+            _divider(),
+            _menuItem(Icons.notifications_none, 'Cài đặt nhắc nhở'),
+            _divider(),
+            _menuItem(Icons.favorite_border, 'Phòng khám yêu thích'),
+            _divider(),
+          ],
           _menuItem(Icons.help_outline, 'Trợ giúp và hỗ trợ'),
           _divider(),
           _menuItem(Icons.logout, 'Đăng xuất', danger: true),
@@ -290,23 +285,42 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _menuItem(IconData icon, String label, {bool danger = false}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-      child: Row(
-        children: <Widget>[
-          Icon(icon, size: 22, color: danger ? Colors.redAccent : primary),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                color: danger ? Colors.redAccent : Colors.black87,
+    return InkWell(
+      onTap: icon == Icons.logout
+          ? () async {
+              try {
+                await FirebaseAuth.instance.signOut();
+              } catch (_) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                      content:
+                          AppText('Chưa thể đăng xuất. Vui lòng thử lại.')),
+                );
+              }
+            }
+          : () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                  builder: (_) => SettingsPage(section: label))),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        child: Row(
+          children: <Widget>[
+            Icon(icon, size: 22, color: danger ? Colors.redAccent : primary),
+            const SizedBox(width: 16),
+            Expanded(
+              child: AppText(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: danger ? Colors.redAccent : Colors.black87,
+                ),
               ),
             ),
-          ),
-          const Icon(Icons.chevron_right, size: 18, color: Colors.black38),
-        ],
+            const Icon(Icons.chevron_right, size: 18, color: Colors.black38),
+          ],
+        ),
       ),
     );
   }

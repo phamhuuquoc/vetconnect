@@ -62,6 +62,77 @@ class Pet {
   final List<WeightRecord> weights;
   final List<VisitRecord> visits;
 
+  Map<String, dynamic> toMap() => {
+        'name': name,
+        'species': species,
+        'breed': breed,
+        'ageYears': ageYears,
+        'weightKg': weightKg,
+        'gender': gender,
+        'neutered': neutered,
+        'allergies': allergies,
+        'vaccines': vaccines
+            .map((v) => {
+                  'name': v.name,
+                  'date': v.date.toUtc().toIso8601String(),
+                  'done': v.done,
+                  'nextDate': v.nextDate?.toUtc().toIso8601String(),
+                })
+            .toList(),
+        'weights': weights
+            .map((w) => {
+                  'date': w.date.toUtc().toIso8601String(),
+                  'kg': w.kg,
+                })
+            .toList(),
+        'visits': visits
+            .map((v) => {
+                  'date': v.date.toUtc().toIso8601String(),
+                  'clinic': v.clinic,
+                  'service': v.service,
+                  'priceVnd': v.priceVnd,
+                })
+            .toList(),
+      };
+
+  factory Pet.fromMap(String id, Map<String, dynamic> data) {
+    DateTime date(dynamic value) => DateTime.parse(value as String);
+    List<Map<String, dynamic>> records(String key) =>
+        (data[key] as List<dynamic>? ?? [])
+            .map((v) => Map<String, dynamic>.from(v as Map))
+            .toList();
+    return Pet(
+      id: id,
+      name: data['name'] as String,
+      species: data['species'] as String,
+      breed: data['breed'] as String,
+      ageYears: (data['ageYears'] as num).toInt(),
+      weightKg: (data['weightKg'] as num).toDouble(),
+      gender: data['gender'] as String,
+      neutered: data['neutered'] as bool? ?? false,
+      allergies: List<String>.from(data['allergies'] as List? ?? []),
+      vaccines: records('vaccines')
+          .map((v) => VaccineRecord(
+                name: v['name'] as String,
+                date: date(v['date']),
+                done: v['done'] as bool,
+                nextDate: v['nextDate'] == null ? null : date(v['nextDate']),
+              ))
+          .toList(),
+      weights: records('weights')
+          .map((v) => WeightRecord(
+              date: date(v['date']), kg: (v['kg'] as num).toDouble()))
+          .toList(),
+      visits: records('visits')
+          .map((v) => VisitRecord(
+              date: date(v['date']),
+              clinic: v['clinic'] as String,
+              service: v['service'] as String,
+              priceVnd: (v['priceVnd'] as num).toInt()))
+          .toList(),
+    );
+  }
+
   String get subtitle => '$breed - $ageYears tuổi';
 
   bool get vaccineUpToDate {
@@ -89,6 +160,9 @@ class Pet {
     String? gender,
     bool? neutered,
     List<String>? allergies,
+    List<VaccineRecord>? vaccines,
+    List<WeightRecord>? weights,
+    List<VisitRecord>? visits,
   }) {
     return Pet(
       id: id,
@@ -100,9 +174,9 @@ class Pet {
       gender: gender ?? this.gender,
       neutered: neutered ?? this.neutered,
       allergies: allergies ?? this.allergies,
-      vaccines: vaccines,
-      weights: weights,
-      visits: visits,
+      vaccines: vaccines ?? this.vaccines,
+      weights: weights ?? this.weights,
+      visits: visits ?? this.visits,
     );
   }
 }

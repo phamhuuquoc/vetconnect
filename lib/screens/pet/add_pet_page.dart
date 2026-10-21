@@ -1,11 +1,16 @@
+import '../../l10n/app_fields.dart';
+import '../../l10n/app_text.dart';
 import 'package:flutter/material.dart';
+import '../../theme/app_theme.dart';
 import '../../data/pet_repository.dart';
+import '../../data/care_repository.dart';
 import '../../models/pet.dart';
 
 class AddPetPage extends StatefulWidget {
-  const AddPetPage({super.key, this.pet});
+  const AddPetPage({super.key, this.pet, this.onSave});
 
   final Pet? pet;
+  final Future<void> Function(Pet)? onSave;
 
   @override
   State<AddPetPage> createState() => _AddPetPageState();
@@ -25,6 +30,7 @@ class _AddPetPageState extends State<AddPetPage> {
   String _species = 'Chó';
   String _gender = 'Đực';
   bool _neutered = false;
+  bool _saving = false;
 
   bool get _isEdit => widget.pet != null;
 
@@ -62,9 +68,9 @@ class _AddPetPageState extends State<AddPetPage> {
         backgroundColor: Colors.white,
         elevation: 0,
         leading: const BackButton(color: Colors.black87),
-        title: Text(
+        title: AppText(
           _isEdit ? 'Chỉnh sửa hồ sơ' : 'Thêm thú cưng',
-          style: const TextStyle(color: Colors.black87, fontSize: 18),
+          style: const TextStyle(color: AppColors.heading, fontSize: 18),
         ),
       ),
       body: Form(
@@ -112,9 +118,10 @@ class _AddPetPageState extends State<AddPetPage> {
               const SizedBox(height: 8),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Đã triệt sản', style: TextStyle(fontSize: 14)),
+                title: const AppText('Đã triệt sản',
+                    style: TextStyle(fontSize: 14)),
                 value: _neutered,
-                activeColor: primary,
+                activeThumbColor: primary,
                 onChanged: (bool v) => setState(() => _neutered = v),
               ),
               const SizedBox(height: 8),
@@ -132,7 +139,7 @@ class _AddPetPageState extends State<AddPetPage> {
   Widget _label(String text) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
+      child: AppText(
         text,
         style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
       ),
@@ -150,7 +157,7 @@ class _AddPetPageState extends State<AddPetPage> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
       ),
-      child: TextFormField(
+      child: AppTextFormField(
         controller: controller,
         validator: required
             ? (String? v) {
@@ -176,9 +183,22 @@ class _AddPetPageState extends State<AddPetPage> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
       ),
-      child: TextFormField(
+      child: AppTextFormField(
         controller: controller,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        validator: (value) {
+          final number = double.tryParse((value ?? '').replaceAll(',', '.'));
+          final age = controller == _ageCtrl;
+          if (number == null ||
+              !number.isFinite ||
+              number < 0 ||
+              (age
+                  ? number > 100 || number != number.roundToDouble()
+                  : number <= 0 || number > 1000)) {
+            return 'Vui lòng nhập số hợp lệ';
+          }
+          return null;
+        },
         decoration: InputDecoration(
           hintText: hint,
           hintStyle: const TextStyle(fontSize: 14, color: Colors.black38),
@@ -188,7 +208,8 @@ class _AddPetPageState extends State<AddPetPage> {
     );
   }
 
-  Widget _chips(List<String> items, String selected, ValueChanged<String> onTap) {
+  Widget _chips(
+      List<String> items, String selected, ValueChanged<String> onTap) {
     return Wrap(
       spacing: 8,
       children: items.map((String item) {
@@ -200,9 +221,10 @@ class _AddPetPageState extends State<AddPetPage> {
             decoration: BoxDecoration(
               color: active ? primary : Colors.white,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: active ? primary : const Color(0xFFE3E5EA)),
+              border:
+                  Border.all(color: active ? primary : const Color(0xFFE3E5EA)),
             ),
-            child: Text(
+            child: AppText(
               item,
               style: TextStyle(
                 fontSize: 14,
@@ -226,8 +248,8 @@ class _AddPetPageState extends State<AddPetPage> {
             borderRadius: BorderRadius.circular(14),
           ),
         ),
-        onPressed: _save,
-        child: Text(
+        onPressed: _saving ? null : _save,
+        child: AppText(
           _isEdit ? 'Lưu thay đổi' : 'Thêm thú cưng',
           style: const TextStyle(color: Colors.white, fontSize: 15),
         ),
@@ -235,12 +257,13 @@ class _AddPetPageState extends State<AddPetPage> {
     );
   }
 
-  void _save() {
+  Future<void> _save() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
     final int age = int.tryParse(_ageCtrl.text.trim()) ?? 0;
-    final double weight = double.tryParse(_weightCtrl.text.trim()) ?? 0;
+    final double weight =
+        double.parse(_weightCtrl.text.trim().replaceAll(',', '.'));
     final List<String> allergies = _allergyCtrl.text
         .split(',')
         .map((String s) => s.trim())
@@ -248,37 +271,49 @@ class _AddPetPageState extends State<AddPetPage> {
         .toList();
 
     final Pet? existing = widget.pet;
+    final Pet updated;
     if (existing != null) {
-      PetRepository.updatePet(
-        existing.copyWith(
-          name: _nameCtrl.text.trim(),
-          species: _species,
-          breed: _breedCtrl.text.trim(),
-          ageYears: age,
-          weightKg: weight,
-          gender: _gender,
-          neutered: _neutered,
-          allergies: allergies,
-        ),
+      updated = existing.copyWith(
+        name: _nameCtrl.text.trim(),
+        species: _species,
+        breed: _breedCtrl.text.trim(),
+        ageYears: age,
+        weightKg: weight,
+        gender: _gender,
+        neutered: _neutered,
+        allergies: allergies,
       );
     } else {
-      PetRepository.addPet(
-        Pet(
-          id: PetRepository.nextId(),
-          name: _nameCtrl.text.trim(),
-          species: _species,
-          breed: _breedCtrl.text.trim(),
-          ageYears: age,
-          weightKg: weight,
-          gender: _gender,
-          neutered: _neutered,
-          allergies: allergies,
-          weights: <WeightRecord>[
-            WeightRecord(date: DateTime.now(), kg: weight),
-          ],
-        ),
+      updated = Pet(
+        id: PetRepository.nextId(),
+        name: _nameCtrl.text.trim(),
+        species: _species,
+        breed: _breedCtrl.text.trim(),
+        ageYears: age,
+        weightKg: weight,
+        gender: _gender,
+        neutered: _neutered,
+        allergies: allergies,
+        weights: <WeightRecord>[
+          WeightRecord(date: DateTime.now(), kg: weight),
+        ],
       );
     }
-    Navigator.of(context).pop(true);
+    setState(() => _saving = true);
+    try {
+      if (widget.onSave != null) {
+        await widget.onSave!(updated);
+      } else {
+        await CareRepository().savePet(updated);
+      }
+      if (mounted) Navigator.of(context).pop(true);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: AppText('Không thể lưu. Kiểm tra kết nối và thử lại.')));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 }

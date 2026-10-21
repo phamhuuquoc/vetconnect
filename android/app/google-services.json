@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "359764588507",
-    "project_id": "vetconnect-ab69b",
-    "storage_bucket": "vetconnect-ab69b.firebasestorage.app"
+    "project_number": "978510354949",
+    "project_id": "vetconnect-149d7",
+    "storage_bucket": "vetconnect-149d7.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:359764588507:android:e7c021381e17e7cfd259fe",
+        "mobilesdk_app_id": "1:978510354949:android:516ed1e8938bb5537c5a6c",
         "android_client_info": {
           "package_name": "com.example.vetconnect"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyDCKDzbR68TkgUuFiVTSEfQHMGKOdd4PUA"
+          "current_key": "AIzaSyALoB-xenusr-ByQqdIy4pOLRBmcyRcJBA"
         }
       ],
       "services": {

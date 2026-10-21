@@ -1,7 +1,12 @@
+import '../../l10n/app_text.dart';
 import 'package:flutter/material.dart';
-import '../../data/pet_repository.dart';
+import '../../theme/app_theme.dart';
+
 import '../../models/pet.dart';
+import '../../data/pet_repository.dart';
+import '../../data/care_repository.dart';
 import 'add_pet_page.dart';
+import '../../widgets/app_data_scope.dart';
 
 class PetDetailPage extends StatefulWidget {
   const PetDetailPage({super.key, required this.pet});
@@ -17,6 +22,223 @@ class _PetDetailPageState extends State<PetDetailPage> {
   static const Color bg = Color(0xFFF5F6F7);
 
   late Pet _pet;
+  bool _saving = false;
+
+  Future<void> _vaccine([int? index]) async {
+    final name = TextEditingController(
+        text: index == null ? '' : _pet.vaccines[index].name);
+    final form = GlobalKey<FormState>();
+    DateTime date = index == null ? DateTime.now() : _pet.vaccines[index].date;
+    DateTime? nextDate = index == null ? null : _pet.vaccines[index].nextDate;
+    bool done = index == null ? false : _pet.vaccines[index].done;
+    final ok = await showDialog<bool>(
+        context: context,
+        builder: (context) => StatefulBuilder(
+            builder: (context, setDialog) => AlertDialog(
+                  title: const AppText('Lịch tiêm chủng & tẩy giun'),
+                  content: SingleChildScrollView(
+                      child: Form(
+                          key: form,
+                          child:
+                              Column(mainAxisSize: MainAxisSize.min, children: [
+                            TextFormField(
+                                controller: name,
+                                maxLength: 150,
+                                decoration: InputDecoration(
+                                    labelText: translate(
+                                        context, 'Tên vaccine hoặc thuốc')),
+                                validator: (v) => v == null || v.trim().isEmpty
+                                    ? translate(
+                                        context, 'Vui lòng nhập thông tin')
+                                    : null),
+                            SwitchListTile(
+                                title: const AppText('Đã thực hiện'),
+                                value: done,
+                                onChanged: (v) => setDialog(() => done = v)),
+                            ListTile(
+                                title: AppText(
+                                    done ? 'Ngày thực hiện' : 'Ngày dự kiến'),
+                                subtitle: Text(_formatDate(date)),
+                                onTap: () async {
+                                  final picked = await showDatePicker(
+                                      context: context,
+                                      initialDate: date,
+                                      firstDate: DateTime(2000),
+                                      lastDate: DateTime(2100));
+                                  if (picked != null) {
+                                    setDialog(() => date = picked);
+                                  }
+                                }),
+                            ListTile(
+                                title: const AppText('Ngày nhắc lại'),
+                                subtitle: Text(nextDate == null
+                                    ? translate(context, 'Chưa chọn')
+                                    : _formatDate(nextDate!)),
+                                trailing: nextDate == null
+                                    ? null
+                                    : IconButton(
+                                        onPressed: () =>
+                                            setDialog(() => nextDate = null),
+                                        icon: const Icon(Icons.clear)),
+                                onTap: () async {
+                                  final picked = await showDatePicker(
+                                      context: context,
+                                      initialDate: nextDate ??
+                                          date.add(const Duration(days: 365)),
+                                      firstDate: date,
+                                      lastDate: DateTime(2101));
+                                  if (picked != null) {
+                                    setDialog(() => nextDate = picked);
+                                  }
+                                }),
+                            const AppText(
+                                'Thông tin theo dõi do chủ nuôi nhập.'),
+                          ]))),
+                  actions: [
+                    TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const AppText('Hủy')),
+                    FilledButton(
+                        onPressed: () {
+                          if (form.currentState!.validate() &&
+                              (!done || !date.isAfter(DateTime.now())) &&
+                              (nextDate == null || !nextDate!.isBefore(date))) {
+                            Navigator.pop(context, true);
+                          }
+                        },
+                        child: const AppText('Lưu'))
+                  ],
+                )));
+    final text = name.text.trim();
+    Future<void>.delayed(const Duration(seconds: 1), name.dispose);
+    if (ok != true || !mounted) return;
+    final vaccines = [..._pet.vaccines];
+    final record =
+        VaccineRecord(name: text, date: date, done: done, nextDate: nextDate);
+    if (index == null) {
+      vaccines.add(record);
+    } else {
+      vaccines[index] = record;
+    }
+    setState(() => _saving = true);
+    try {
+      final updated = _pet.copyWith(vaccines: vaccines);
+      await CareRepository().savePet(updated);
+      if (mounted) setState(() => _pet = updated);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: AppText('Không thể lưu. Kiểm tra kết nối và thử lại.')));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _edit() async {
+    await Navigator.push(context,
+        MaterialPageRoute<bool>(builder: (_) => AddPetPage(pet: _pet)));
+    if (mounted) setState(() => _pet = PetRepository.byId(_pet.id) ?? _pet);
+  }
+
+  Future<void> _delete() async {
+    final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+                title: const AppText('Xóa hồ sơ thú cưng'),
+                content: const AppText(
+                    'Xóa hồ sơ này? Lịch khám đã đặt vẫn được giữ lại.'),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const AppText('Hủy')),
+                  FilledButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const AppText('Xóa'))
+                ]));
+    if (confirmed != true || !mounted) return;
+    setState(() => _saving = true);
+    try {
+      await CareRepository().deletePet(_pet.id);
+      if (mounted) Navigator.pop(context, true);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: AppText('Không thể lưu. Kiểm tra kết nối và thử lại.')));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _weight() async {
+    final controller = TextEditingController();
+    final key = GlobalKey<FormState>();
+    final ok = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+                title: const AppText('Cập nhật cân nặng'),
+                content: Form(
+                    key: key,
+                    child: TextFormField(
+                        controller: controller,
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
+                        decoration: const InputDecoration(suffixText: 'kg'),
+                        validator: (value) {
+                          final kg = double.tryParse(
+                              (value ?? '').replaceAll(',', '.'));
+                          return kg == null ||
+                                  !kg.isFinite ||
+                                  kg <= 0 ||
+                                  kg > 1000
+                              ? translate(context, 'Vui lòng nhập số hợp lệ')
+                              : null;
+                        })),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const AppText('Hủy')),
+                  FilledButton(
+                      onPressed: () {
+                        if (key.currentState!.validate()) {
+                          Navigator.pop(context, true);
+                        }
+                      },
+                      child: const AppText('Lưu'))
+                ]));
+    final value = double.tryParse(controller.text.replaceAll(',', '.'));
+    Future<void>.delayed(const Duration(seconds: 1), controller.dispose);
+    if (ok != true || value == null || !mounted) return;
+    setState(() => _saving = true);
+    final updated = Pet(
+        id: _pet.id,
+        name: _pet.name,
+        species: _pet.species,
+        breed: _pet.breed,
+        ageYears: _pet.ageYears,
+        weightKg: value,
+        gender: _pet.gender,
+        neutered: _pet.neutered,
+        allergies: _pet.allergies,
+        vaccines: _pet.vaccines,
+        visits: _pet.visits,
+        weights: [
+          ..._pet.weights,
+          WeightRecord(date: DateTime.now(), kg: value)
+        ]);
+    try {
+      await CareRepository().savePet(updated);
+      if (mounted) setState(() => _pet = updated);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: AppText('Không thể lưu. Kiểm tra kết nối và thử lại.')));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
 
   @override
   void initState() {
@@ -24,135 +246,30 @@ class _PetDetailPageState extends State<PetDetailPage> {
     _pet = widget.pet;
   }
 
-  void _reload() {
-    final Pet? updated = PetRepository.byId(_pet.id);
-    if (updated != null) {
-      setState(() => _pet = updated);
-    }
-  }
-
-  Future<void> _openEdit() async {
-    final bool? result = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (BuildContext context) => AddPetPage(pet: _pet),
-      ),
-    );
-    if (result == true) {
-      _reload();
-    }
-  }
-
-  Future<void> _confirmDelete() async {
-    final bool? ok = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Xóa thú cưng'),
-          content: Text('Bạn chắc chắn muốn xóa hồ sơ của ${_pet.name}?'),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Hủy'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Xóa', style: TextStyle(color: Colors.redAccent)),
-            ),
-          ],
-        );
-      },
-    );
-    if (ok == true) {
-      PetRepository.removePet(_pet.id);
-      if (mounted) {
-        Navigator.of(context).pop(true);
-      }
-    }
-  }
-
-  Future<void> _addWeight() async {
-    final TextEditingController ctrl = TextEditingController();
-    final double? value = await showDialog<double>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Cập nhật cân nặng'),
-          content: TextField(
-            controller: ctrl,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
-              hintText: 'Nhập cân nặng (kg)',
-              suffixText: 'kg',
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Hủy'),
-            ),
-            TextButton(
-              onPressed: () {
-                final double? v = double.tryParse(ctrl.text.trim());
-                Navigator.of(context).pop(v);
-              },
-              child: const Text('Lưu'),
-            ),
-          ],
-        );
-      },
-    );
-    if (value != null && value > 0) {
-      PetRepository.addWeightRecord(_pet.id, value);
-      _reload();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Đã cập nhật cân nặng cho ${_pet.name}')),
-        );
-      }
-    }
-  }
-
-  void _markVaccineDone(int index) {
-    PetRepository.markVaccineDone(_pet.id, index);
-    _reload();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Đã đánh dấu đã tiêm')),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
+    AppDataScope.watch(context);
+    _pet = PetRepository.byId(_pet.id) ?? _pet;
     return Scaffold(
       backgroundColor: bg,
       appBar: AppBar(
+        actions: [
+          IconButton(
+              onPressed: _saving ? null : _edit,
+              icon: const Icon(Icons.edit_outlined),
+              tooltip: translate(context, 'Chỉnh sửa hồ sơ')),
+          IconButton(
+              onPressed: _saving ? null : _delete,
+              icon: const Icon(Icons.delete_outline),
+              tooltip: translate(context, 'Xóa hồ sơ thú cưng'))
+        ],
         backgroundColor: Colors.white,
         elevation: 0,
         leading: const BackButton(color: Colors.black87),
         title: Text(
           _pet.name,
-          style: const TextStyle(color: Colors.black87, fontSize: 18),
+          style: const TextStyle(color: AppColors.heading, fontSize: 18),
         ),
-        actions: <Widget>[
-          PopupMenuButton<String>(
-            onSelected: (String value) {
-              if (value == 'edit') {
-                _openEdit();
-              } else if (value == 'delete') {
-                _confirmDelete();
-              }
-            },
-            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-              const PopupMenuItem<String>(
-                value: 'edit',
-                child: Text('Sửa hồ sơ'),
-              ),
-              const PopupMenuItem<String>(
-                value: 'delete',
-                child: Text('Xóa thú cưng', style: TextStyle(color: Colors.redAccent)),
-              ),
-            ],
-          ),
-        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
@@ -166,12 +283,19 @@ class _PetDetailPageState extends State<PetDetailPage> {
             _sectionTitle('Lịch tiêm chủng & tẩy giun'),
             const SizedBox(height: 10),
             _vaccines(),
+            TextButton.icon(
+                onPressed: _saving ? null : () => _vaccine(),
+                icon: const Icon(Icons.add),
+                label: const AppText('Thêm lịch chăm sóc')),
             const SizedBox(height: 18),
             _sectionTitle('Cân nặng theo thời gian'),
             const SizedBox(height: 10),
             _weightChart(),
+            TextButton.icon(
+                onPressed: _saving ? null : _weight,
+                icon: const Icon(Icons.add),
+                label: const AppText('Cập nhật cân nặng')),
             const SizedBox(height: 10),
-            _addWeightButton(),
             const SizedBox(height: 18),
             _sectionTitle('Lịch sử khám'),
             const SizedBox(height: 10),
@@ -181,7 +305,6 @@ class _PetDetailPageState extends State<PetDetailPage> {
             const SizedBox(height: 10),
             _allergies(),
             const SizedBox(height: 24),
-            _bookButton(),
           ],
         ),
       ),
@@ -199,7 +322,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
         children: <Widget>[
           CircleAvatar(
             radius: 30,
-            backgroundColor: primary.withOpacity(0.1),
+            backgroundColor: primary.withValues(alpha: 0.1),
             child: const Icon(Icons.pets, color: primary, size: 30),
           ),
           const SizedBox(width: 14),
@@ -215,7 +338,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(
+                AppText(
                   _pet.subtitle,
                   style: const TextStyle(fontSize: 13, color: Colors.black54),
                 ),
@@ -239,10 +362,11 @@ class _PetDetailPageState extends State<PetDetailPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: primary.withOpacity(0.1),
+        color: primary.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Text(text, style: const TextStyle(fontSize: 11, color: primary)),
+      child:
+          AppText(text, style: const TextStyle(fontSize: 11, color: primary)),
     );
   }
 
@@ -255,7 +379,9 @@ class _PetDetailPageState extends State<PetDetailPage> {
         const SizedBox(width: 10),
         _metric(
           'Tiêm chủng',
-          _pet.vaccineUpToDate ? 'Đầy đủ' : 'Còn ${_pet.pendingVaccineCount} mũi',
+          _pet.vaccineUpToDate
+              ? 'Đầy đủ'
+              : 'Còn ${_pet.pendingVaccineCount} mũi',
         ),
       ],
     );
@@ -271,7 +397,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
         ),
         child: Column(
           children: <Widget>[
-            Text(
+            AppText(
               value,
               style: const TextStyle(
                 fontSize: 14,
@@ -280,7 +406,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
               ),
             ),
             const SizedBox(height: 4),
-            Text(
+            AppText(
               label,
               style: const TextStyle(fontSize: 12, color: Colors.black54),
             ),
@@ -291,9 +417,10 @@ class _PetDetailPageState extends State<PetDetailPage> {
   }
 
   Widget _sectionTitle(String title) {
-    return Text(
+    return AppText(
       title,
-      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+      style: const TextStyle(
+          fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.heading),
     );
   }
 
@@ -313,6 +440,10 @@ class _PetDetailPageState extends State<PetDetailPage> {
           ),
           child: Row(
             children: <Widget>[
+              IconButton(
+                  onPressed: _saving ? null : () => _vaccine(i),
+                  icon: const Icon(Icons.edit_outlined),
+                  tooltip: translate(context, 'Chỉnh sửa')),
               Icon(
                 v.done ? Icons.check_circle : Icons.schedule,
                 color: v.done ? Colors.green : Colors.orange,
@@ -323,21 +454,23 @@ class _PetDetailPageState extends State<PetDetailPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Text(
+                    AppText(
                       v.name,
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                      style: const TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w500),
                     ),
                     const SizedBox(height: 3),
-                    Text(
+                    AppText(
                       v.done
                           ? 'Đã tiêm ${_formatDate(v.date)}'
                           : 'Dự kiến ${_formatDate(v.date)}',
-                      style: const TextStyle(fontSize: 12, color: Colors.black54),
+                      style:
+                          const TextStyle(fontSize: 12, color: Colors.black54),
                     ),
                     if (v.nextDate != null)
                       Padding(
                         padding: const EdgeInsets.only(top: 3),
-                        child: Text(
+                        child: AppText(
                           'Nhắc lại: ${_formatDate(v.nextDate!)}',
                           style: const TextStyle(
                             fontSize: 11,
@@ -348,11 +481,6 @@ class _PetDetailPageState extends State<PetDetailPage> {
                   ],
                 ),
               ),
-              if (!v.done)
-                TextButton(
-                  onPressed: () => _markVaccineDone(i),
-                  child: const Text('Đã tiêm', style: TextStyle(fontSize: 12)),
-                ),
             ],
           ),
         );
@@ -390,7 +518,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
               padding: const EdgeInsets.only(right: 14),
               child: Column(
                 children: <Widget>[
-                  Text(
+                  AppText(
                     '${w.kg}kg',
                     style: const TextStyle(fontSize: 11, color: Colors.black54),
                   ),
@@ -399,12 +527,12 @@ class _PetDetailPageState extends State<PetDetailPage> {
                     width: 34,
                     height: 24 + ratio * 56,
                     decoration: BoxDecoration(
-                      color: primary.withOpacity(0.75),
+                      color: primary.withValues(alpha: 0.75),
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
                   const SizedBox(height: 6),
-                  Text(
+                  AppText(
                     '${w.date.day}/${w.date.month}',
                     style: const TextStyle(fontSize: 11, color: Colors.black54),
                   ),
@@ -412,32 +540,6 @@ class _PetDetailPageState extends State<PetDetailPage> {
               ),
             );
           }).toList(),
-        ),
-      ),
-    );
-  }
-
-  Widget _addWeightButton() {
-    return GestureDetector(
-      onTap: _addWeight,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 13),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: primary.withOpacity(0.4)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: const <Widget>[
-            Icon(Icons.add, color: primary, size: 18),
-            SizedBox(width: 6),
-            Text(
-              'Cập nhật cân nặng',
-              style: TextStyle(color: primary, fontSize: 14),
-            ),
-          ],
         ),
       ),
     );
@@ -463,7 +565,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
                 Row(
                   children: <Widget>[
                     Expanded(
-                      child: Text(
+                      child: AppText(
                         v.service,
                         style: const TextStyle(
                           fontSize: 14,
@@ -471,7 +573,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
                         ),
                       ),
                     ),
-                    Text(
+                    AppText(
                       '${_formatMoney(v.priceVnd)}đ',
                       style: const TextStyle(
                         fontSize: 13,
@@ -486,7 +588,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
                   style: const TextStyle(fontSize: 12, color: Colors.black54),
                 ),
                 const SizedBox(height: 4),
-                Text(
+                AppText(
                   _formatDate(v.date),
                   style: const TextStyle(fontSize: 12, color: Colors.black45),
                 ),
@@ -498,17 +600,17 @@ class _PetDetailPageState extends State<PetDetailPage> {
           width: double.infinity,
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: primary.withOpacity(0.08),
+            color: primary.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(14),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: <Widget>[
-              const Text(
+              const AppText(
                 'Tổng chi phí',
                 style: TextStyle(fontSize: 13, color: Colors.black87),
               ),
-              Text(
+              AppText(
                 '${_formatMoney(_pet.totalSpent)}đ',
                 style: const TextStyle(
                   fontSize: 15,
@@ -539,14 +641,15 @@ class _PetDetailPageState extends State<PetDetailPage> {
         children: _pet.allergies
             .map(
               (String a) => Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.red.shade50,
+                  color: const Color(0xFFEBF0FF),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
                   a,
-                  style: const TextStyle(fontSize: 12, color: Colors.redAccent),
+                  style: const TextStyle(fontSize: 12, color: primary),
                 ),
               ),
             )
@@ -563,33 +666,9 @@ class _PetDetailPageState extends State<PetDetailPage> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
       ),
-      child: Text(
+      child: AppText(
         text,
         style: const TextStyle(fontSize: 13, color: Colors.black54),
-      ),
-    );
-  }
-
-  Widget _bookButton() {
-    return SizedBox(
-      width: double.infinity,
-      height: 50,
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: primary,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-        ),
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Đặt lịch khám cho ${_pet.name}')),
-          );
-        },
-        child: Text(
-          'Đặt lịch cho ${_pet.name}',
-          style: const TextStyle(color: Colors.white, fontSize: 15),
-        ),
       ),
     );
   }

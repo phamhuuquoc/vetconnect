@@ -1,0 +1,162 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+    function isAdmin() {
+      return signedIn()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    function validRole(role) {
+      return role in ['user', 'doctor', 'admin'];
+    }
+    function roleIs(role) {
+      return signedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
+    }
+    function validPet(p) {
+      return p.keys().hasAll(['name','species','breed','ageYears','weightKg','gender','neutered','allergies','vaccines','weights','visits'])
+        && p.keys().hasOnly(['name','species','breed','ageYears','weightKg','gender','neutered','allergies','vaccines','weights','visits'])
+        && p.name is string && p.name.size() > 0 && p.name.size() <= 150
+        && p.species in ['Chó','Mèo','Khác'] && p.breed is string && p.breed.size() <= 150
+        && p.ageYears is int && p.ageYears >= 0 && p.ageYears <= 100
+        && p.weightKg is number && p.weightKg > 0 && p.weightKg <= 1000
+        && p.gender in ['Đực','Cái'] && p.neutered is bool
+        && p.allergies is list && p.allergies.size() <= 100
+        && p.vaccines is list && p.vaccines.size() <= 500
+        && p.weights is list && p.weights.size() <= 2000 && p.visits is list && p.visits.size() <= 1000;
+    }
+    match /users/{uid} {
+      allow get: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow list: if isAdmin();
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasAll(['email', 'role', 'createdAt', 'updatedAt'])
+        && request.resource.data.keys().hasOnly(['email', 'role', 'createdAt', 'updatedAt'])
+        && request.resource.data.email == request.auth.token.get('email', '')
+        && request.resource.data.role == 'user'
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      // Only another admin can change a role; no self-promotion or self-demotion.
+      allow update: if isAdmin()
+        && request.auth.uid != uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role', 'updatedAt'])
+        && validRole(request.resource.data.role)
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+    match /users/{uid}/pets/{petId} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create, update: if signedIn() && request.auth.uid == uid && validPet(request.resource.data);
+      allow delete: if signedIn() && request.auth.uid == uid;
+    }
+    match /users/{uid}/appointments/{appointmentId} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow write: if false;
+    }
+    match /users/{uid}/settings/{id} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create, update: if signedIn() && request.auth.uid == uid && id == 'preferences'
+        && request.resource.data.keys().hasOnly(['address','favoriteClinicIds','remindersEnabled'])
+        && request.resource.data.get('address','') is string && request.resource.data.get('address','').size() <= 500
+        && request.resource.data.get('favoriteClinicIds',[]) is list && request.resource.data.get('favoriteClinicIds',[]).size() <= 200
+        && request.resource.data.get('remindersEnabled',true) is bool;
+    }
+    match /clinics/{id} {
+      allow read: if signedIn();
+      allow create, update: if isAdmin() && request.resource.data.name is string
+        && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 150
+        && request.resource.data.address is string && request.resource.data.address.size() <= 500
+        && request.resource.data.openingHours is string;
+      allow delete: if isAdmin();
+    }
+    match /services/{id} {
+      allow read: if signedIn();
+      allow create, update: if isAdmin() && request.resource.data.name is string && request.resource.data.name.size() > 0
+        && exists(/databases/$(database)/documents/clinics/$(request.resource.data.clinicId))
+        && request.resource.data.priceVnd is int && request.resource.data.priceVnd >= 0 && request.resource.data.priceVnd <= 100000000
+        && request.resource.data.durationMinutes is int && request.resource.data.durationMinutes > 0 && request.resource.data.durationMinutes <= 1440;
+      allow delete: if isAdmin();
+    }
+    match /doctors/{id} {
+      allow read: if signedIn();
+      allow create, update: if isAdmin() && request.resource.data.name is string && request.resource.data.name.size() > 0
+        && exists(/databases/$(database)/documents/clinics/$(request.resource.data.clinicId))
+        && get(/databases/$(database)/documents/users/$(request.resource.data.userId)).data.role == 'doctor'
+        && request.resource.data.specialty is string;
+      allow delete: if isAdmin();
+    }
+    function validSlot(s) {
+      return s.keys().hasOnly(['clinicId','serviceId','doctorId','startsAt','startsAtTime','status','appointmentId'])
+        && s.status == 'available' && s.appointmentId == '' && s.startsAt is string
+        && s.startsAtTime is timestamp && s.startsAtTime > request.time
+        && exists(/databases/$(database)/documents/clinics/$(s.clinicId))
+        && get(/databases/$(database)/documents/services/$(s.serviceId)).data.clinicId == s.clinicId
+        && get(/databases/$(database)/documents/doctors/$(s.doctorId)).data.clinicId == s.clinicId;
+    }
+    function reservesSlot(slotId) {
+      let id = request.resource.data.appointmentId;
+      let a = getAfter(/databases/$(database)/documents/appointments/$(id)).data;
+      return signedIn() && resource.data.status == 'available' && request.resource.data.status == 'reserved'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','appointmentId'])
+        && !exists(/databases/$(database)/documents/appointments/$(id))
+        && a.ownerId == request.auth.uid && a.slotId == slotId && a.status == 'pending' && a.createdAt == request.time;
+    }
+    function releasesSlot(slotId) {
+      let id = resource.data.appointmentId;
+      let before = get(/databases/$(database)/documents/appointments/$(id)).data;
+      let after = getAfter(/databases/$(database)/documents/appointments/$(id)).data;
+      return signedIn() && resource.data.status == 'reserved'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','appointmentId'])
+        && request.resource.data.status == 'available' && request.resource.data.appointmentId == ''
+        && before.slotId == slotId && before.status in ['pending','confirmed'] && after.status == 'cancelled'
+        && (before.ownerId == request.auth.uid || (roleIs('doctor') && before.doctorUid == request.auth.uid) || isAdmin());
+    }
+    match /timeSlots/{id} {
+      allow read: if signedIn();
+      allow create: if isAdmin() && validSlot(request.resource.data);
+      allow update: if (isAdmin() && resource.data.status == 'available' && validSlot(request.resource.data))
+        || reservesSlot(id) || releasesSlot(id);
+      allow delete: if isAdmin() && resource.data.status == 'available';
+    }
+    function validBooking(id, a) {
+      let slot = get(/databases/$(database)/documents/timeSlots/$(a.slotId)).data;
+      let next = getAfter(/databases/$(database)/documents/timeSlots/$(a.slotId)).data;
+      let svc = get(/databases/$(database)/documents/services/$(a.serviceId)).data;
+      let pet = get(/databases/$(database)/documents/users/$(request.auth.uid)/pets/$(a.petId)).data;
+      let doctor = get(/databases/$(database)/documents/doctors/$(a.doctorId)).data;
+      return a.keys().hasOnly(['ownerId','petId','petName','petSummary','clinicId','serviceId','serviceName','priceVnd','doctorId','doctorUid','slotId','startsAt','startsAtTime','status','medicalNotes','createdAt','updatedAt'])
+        && a.ownerId == request.auth.uid && a.petName == pet.name && a.petSummary == pet
+        && a.clinicId == slot.clinicId && a.serviceId == slot.serviceId && a.doctorId == slot.doctorId
+        && svc.clinicId == slot.clinicId && doctor.clinicId == slot.clinicId
+        && a.serviceName == svc.name && a.priceVnd == svc.priceVnd && a.doctorUid == doctor.userId
+        && get(/databases/$(database)/documents/users/$(a.doctorUid)).data.role == 'doctor'
+        && slot.status == 'available' && next.status == 'reserved' && next.appointmentId == id
+        && a.startsAt == slot.startsAt && a.startsAtTime == slot.startsAtTime && a.startsAtTime > request.time
+        && a.status == 'pending' && a.medicalNotes == '' && a.createdAt == request.time && a.updatedAt == request.time;
+    }
+    match /appointments/{id} {
+      allow read: if signedIn() && (resource.data.ownerId == request.auth.uid || (roleIs('doctor') && resource.data.doctorUid == request.auth.uid) || isAdmin());
+      allow create: if roleIs('user') && validBooking(id, request.resource.data);
+      allow update: if signedIn()
+        && resource.data.status in ['pending','confirmed']
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','medicalNotes','updatedAt'])
+        && request.resource.data.updatedAt == request.time
+        && ((request.resource.data.status == 'cancelled'
+          && request.resource.data.medicalNotes == resource.data.medicalNotes
+          && (resource.data.ownerId == request.auth.uid && resource.data.startsAtTime > request.time
+            || roleIs('doctor') && resource.data.doctorUid == request.auth.uid || isAdmin())
+          && getAfter(/databases/$(database)/documents/timeSlots/$(resource.data.slotId)).data.status == 'available'
+          && getAfter(/databases/$(database)/documents/timeSlots/$(resource.data.slotId)).data.appointmentId == '')
+        || ((roleIs('doctor') && resource.data.doctorUid == request.auth.uid || isAdmin())
+          && (resource.data.status == 'pending' && request.resource.data.status == 'confirmed' && request.resource.data.medicalNotes == resource.data.medicalNotes
+          || resource.data.status == 'confirmed' && request.resource.data.status == 'completed'
+            && resource.data.startsAtTime <= request.time
+            && request.resource.data.medicalNotes is string && request.resource.data.medicalNotes.size() > 0 && request.resource.data.medicalNotes.size() <= 5000)));
+    }
+    // Other modules require their own ownership/assignment rules before going live.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

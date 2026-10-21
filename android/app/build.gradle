@@ -5,9 +5,21 @@ plugins {
     id 'dev.flutter.flutter-gradle-plugin'
 }
 
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file('key.properties')
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+    ['storeFile', 'storePassword', 'keyAlias', 'keyPassword'].each { name ->
+        if (!keystoreProperties.getProperty(name)?.trim()) {
+            throw new GradleException("Missing ${name} in android/key.properties")
+        }
+    }
+}
+
 android {
     namespace = "com.example.vetconnect"
     compileSdkVersion 36
+    ndkVersion "28.2.13676358"
 
     defaultConfig {
         applicationId "com.example.vetconnect"
@@ -26,8 +38,21 @@ android {
         jvmTarget = '17'
     }
 
+    signingConfigs {
+        if (keystorePropertiesFile.exists()) {
+            release {
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+            }
+        }
+    }
+
     buildTypes {
         release {
+            // Local builds are installable; publishing requires key.properties.
+            signingConfig keystorePropertiesFile.exists() ? signingConfigs.release : signingConfigs.debug
             minifyEnabled false
             shrinkResources false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
