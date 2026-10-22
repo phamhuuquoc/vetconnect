@@ -18,6 +18,10 @@ button on the login screen. The device remembers the choice. See
 
 ## Android build
 
+Firebase client configuration is not tracked in Git. Before the first build,
+restore `lib/firebase_options.dart` and `android/app/google-services.json` from
+your Firebase project. See [local and CI configuration](docs/firebase-config.md).
+
 Use JDK 17 and an Android SDK with API 36 and NDK 28.2.13676358 installed. The current
 `android/gradle.properties` points to `D:\jdk17`; adjust this path to your
 local JDK installation when building on another machine.

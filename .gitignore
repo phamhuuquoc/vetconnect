@@ -52,3 +52,9 @@ app.*.map.json
 # Local Firestore security-rule test dependencies and emulator output
 node_modules/
 *-debug.log
+
+# Generated Firebase client configuration stays on the local machine or in CI.
+/lib/firebase_options.dart
+/android/app/google-services.json
+/ios/Runner/GoogleService-Info.plist
+/macos/Runner/GoogleService-Info.plist
